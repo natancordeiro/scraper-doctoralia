@@ -18,9 +18,9 @@ class DoctorScraper:
             response = self.client.get(url)
             response.raise_for_status()
             soup = BeautifulSoup(response.text, "html.parser")
-            last_page_tag = soup.select_one("a.page-link:not([aria-label='next'])")
-            if last_page_tag:
-                last_page = int(last_page_tag.text.strip())
+            last_page_tags = soup.select("a.page-link:not([aria-label='next'])")
+            if last_page_tags:
+                last_page = int(last_page_tags[-1].text.strip())
                 logger.info(f"Última página encontrada: {last_page}")
                 return last_page
             else:
