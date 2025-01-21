@@ -1,22 +1,55 @@
 import logging
-from logging.handlers import RotatingFileHandler
+import colorlog
 
-def setup_logger(name: str, log_file: str = "app.log", level: int = logging.INFO) -> logging.Logger:
-    """Configura e retorna um logger com nível de log e arquivo de saída."""
-    logger = logging.getLogger(name)
-    logger.setLevel(level)
+def setup_logger(log_file="app.log"):
+    """
+    Configura o logger para registrar logs coloridos no console
+    e em um arquivo de log.
+    """
+    
+    logger = logging.getLogger("logger")
+    logger.setLevel(logging.DEBUG)
 
-    # Configura o formato do log
-    formatter = logging.Formatter(
-        "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    # Evita duplicação de logs ao remover handlers existentes
+    if logger.hasHandlers():
+        logger.handlers.clear()
+
+    # Evita propagação para o root logger
+    logger.propagate = False
+
+    # Cria um handler para registrar em arquivo (sem cores)
+    file_handler = logging.FileHandler(log_file)
+    file_handler.setLevel(logging.DEBUG)
+
+    file_formatter = logging.Formatter(
+        '%(asctime)s - %(levelname)s - %(message)s',
+        datefmt='%d/%m/%Y %H:%M:%S'
     )
 
-    # Configura o manipulador de arquivo com rotação
-    file_handler = RotatingFileHandler(log_file, maxBytes=5 * 1024 * 1024, backupCount=3)
-    file_handler.setFormatter(formatter)
+    file_handler.setFormatter(file_formatter)
 
-    # Adiciona o manipulador ao logger
-    if not logger.hasHandlers():
-        logger.addHandler(file_handler)
+    # Cria um handler para exibir no console (com cores)
+    console_handler = logging.StreamHandler()
+    console_handler.setLevel(logging.INFO)
+
+    # Define as cores para cada nível de log usando colorlog
+    color_formatter = colorlog.ColoredFormatter(
+        "%(asctime)s - %(log_color)s%(levelname)s - %(message)s",
+        datefmt='%d/%m/%Y %H:%M:%S',
+        log_colors={
+            'DEBUG': 'cyan',
+            'INFO': 'green',
+            'WARNING': 'yellow',
+            'ERROR': 'red',
+            'CRITICAL': 'bold_red',
+        }
+    )
+    console_handler.setFormatter(color_formatter)
+
+    # Adiciona os handlers ao logger
+    logger.addHandler(file_handler)
+    logger.addHandler(console_handler)
 
     return logger
+
+logger = setup_logger()

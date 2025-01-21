@@ -1,10 +1,7 @@
 import httpx
 from bs4 import BeautifulSoup
-from utils.setup_logger import setup_logger
+from utils.setup_logger import logger
 from utils.parsing import extract_specialties
-
-# Configurando o logger
-logger = setup_logger("scraper", "scraper.log")
 
 class DoctorScraper:
     def __init__(self, base_url: str, city: str):

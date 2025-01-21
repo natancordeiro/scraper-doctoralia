@@ -1,9 +1,7 @@
 # main.py
 import json
 from src.scraper import DoctorScraper
-from utils.setup_logger import setup_logger
-
-logger = setup_logger("main")
+from utils.setup_logger import logger
 
 if __name__ == "__main__":
     # Carregar as cidades e URLs do arquivo JSON
