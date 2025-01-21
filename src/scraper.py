@@ -47,7 +47,8 @@ class DoctorScraper:
             response.raise_for_status()
             soup = BeautifulSoup(response.text, "html.parser")
             doctors = []
-            for item in soup.select("#search-content > ul > li"):
+            all_doctors = soup.select("#search-content > ul > li")
+            for i, item in enumerate(all_doctors):
                 try:
                     link_tag = item.select_one("a")
                     name_tag = item.select_one("span[itemprop='name']")
@@ -65,7 +66,7 @@ class DoctorScraper:
 
                     # Busca detalhes do perfil
                     profile_details = self.get_profile_details(link_to_profile, reviews)
-
+                    logger.info(f"Dados do {profile_details['Name']} Extraído com sucesso ({i+1}/{len(all_doctors)})")
                     doctors.append({
                         "professional": professional,
                         "specialties": specialties,
@@ -75,6 +76,7 @@ class DoctorScraper:
                         "city": self.city,
                         "data": profile_details,
                     })
+
                 except Exception as e:
                     logger.error(f"Erro ao processar dados de um médico: {e}")
             logger.info(f"{len(doctors)} médicos encontrados na página.")
@@ -102,7 +104,7 @@ class DoctorScraper:
             for tag in experience_tags:
                 link_tag = tag.select('a[target="_blank"]')
                 if link_tag:
-                    experience.append(''.join(tag.text.split()[0], tag.text.split()[1]))
+                    experience.append(''.join([tag.text.split()[0], ' ', tag.text.split()[1]]))
                     for link in link_tag:
                         experience.append(f"{link.text.strip()} ({link['href']})")
                 else:
@@ -142,7 +144,6 @@ class DoctorScraper:
                 else None
             )
             health_questions_and_answers = self.get_all_questions(link_questions) if link_questions else []
-
             return {
                 "Origin URL": origin_url,
                 "Name": name.text.strip() if name else None,
@@ -165,7 +166,7 @@ class DoctorScraper:
             base_url = f"https://www.doctoralia.com.br/ajax/mobile/doctor-opinions/{doctor_id}"
             page = 2
 
-            with tqdm(total=reviews_count, desc=f"Processando Rivews", unit=' Reviews') as pbar:
+            with tqdm(total=reviews_count, desc=f"Processando Reviews", unit=' Reviews') as pbar:
                 pbar.update(len(reviews))
                 while True:
                     response = self.client.get(f"{base_url}/{page}", timeout=10)
@@ -192,12 +193,12 @@ class DoctorScraper:
 
                     # Verificar se já coletamos todas as reviews
                     if len(reviews) >= data["numRows"]:
-                        logger.info(f"Todas as {len(reviews)} reviews coletadas.")
                         break
 
                     # Incrementa para próxima página
                     page += 1
 
+            logger.info(f"Todas as {len(reviews)} reviews coletadas.")
             return reviews
         except Exception as e:
             logger.error(f"Erro ao obter todas as reviews: {e}")
