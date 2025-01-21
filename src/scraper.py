@@ -1,6 +1,7 @@
 import httpx
 from bs4 import BeautifulSoup
 from utils.setup_logger import setup_logger
+from utils.parsing import extract_specialties
 
 # Configurando o logger
 logger = setup_logger("scraper", "scraper.log")
@@ -37,21 +38,27 @@ class DoctorScraper:
             response.raise_for_status()
             soup = BeautifulSoup(response.text, "html.parser")
             doctors = []
-            for item in soup.select("#search-content ul > li"):
+            for item in soup.select("#search-content > ul > li"):
                 try:
                     link_tag = item.select_one("a")
                     name_tag = item.select_one("span[itemprop='name']")
                     reviews_tag = item.select_one("span.opinion-numeral")
+                    span_tags = [span.text.strip() for span in item.select("div.dp-doctor-card + span")]
+                    specialties_tag = item.select_one("span[data-test-id='doctor-specializations']")
 
                     link_to_profile = link_tag["href"] if link_tag else None
                     professional = name_tag.text.strip() if name_tag else None
                     reviews = (
                         int(reviews_tag.text.strip().split()[0]) if reviews_tag else 0
                     )
+                    specialties = extract_specialties(specialties_tag.text.strip() if specialties_tag else "")
+                    register_id = ' '.join(span_tags)
                     doctors.append({
                         "professional": professional,
-                        "link_to_profile": link_to_profile,
+                        "specialties": specialties,
+                        "register_id": register_id,
                         "reviews": reviews,
+                        "link_to_profile": link_to_profile,
                         "city": self.city,
                     })
                 except Exception as e:
@@ -71,7 +78,7 @@ class DoctorScraper:
 
         for page in range(1, last_page + 1):
             logger.info(f"Raspando página {page}/{last_page}...")
-            page_url = f"{self.base_url}&page={page}"
+            page_url = self.base_url.replace("page=1", f"page={page}")
             doctors = self.scrape_page(page_url)
             all_doctors.extend(doctors)
 
