@@ -1,0 +1,6 @@
+{
+    "Sao Paulo": "https://www.doctoralia.com.br/pesquisa?q=&loc=S%C3%A3o%20Paulo%2C%20Brasil&filters%5Bentity_type%5D%5B0%5D=doctor&sorter=rating&page=1",
+    "Santos": "https://www.doctoralia.com.br/pesquisa?q=&loc=Santos%2C%20SP&filters%5Bentity_type%5D%5B0%5D=doctor&sorter=rating&page=1",
+    "Rio de Janeiro": "https://www.doctoralia.com.br/pesquisa?q=&loc=Rio%20de%20Janeiro&filters%5Bentity_type%5D%5B0%5D=doctor&sorter=rating&page=1",
+    "Campinas": "https://www.doctoralia.com.br/pesquisa?q=&loc=Campinas%2C%20SP&filters%5Bentity_type%5D%5B0%5D=doctor&sorter=rating&page=1"
+}
