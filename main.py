@@ -21,7 +21,15 @@ if __name__ == "__main__":
         # Salvar os dados em um arquivo JSON
         try:
             with open(f"data/{city}.json", "w", encoding="utf-8") as file:
-                json.dump(all_data, file, ensure_ascii=False, indent=4)
+                json.dump(city_data, file, ensure_ascii=False, indent=4)
             logger.info(f"Raspagem da cidade: {city} concluída e dados salvos em data/{city}.json.")
+        except Exception as e:
+            logger.error(f"Erro ao salvar os dados: {e}")
+
+        # Salvar os dados em um arquivo JSON
+        try:
+            with open(f"data/doctolaria.json", "w", encoding="utf-8") as file:
+                json.dump(all_data, file, ensure_ascii=False, indent=4)
+            logger.info(f"Raspagem da todos os dados concluída e dados salvos em data/doctolaria.json.")
         except Exception as e:
             logger.error(f"Erro ao salvar os dados: {e}")
