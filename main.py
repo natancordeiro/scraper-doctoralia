@@ -23,8 +23,8 @@ def process_city(city: str, url: str):
 def main():
     # Configurar o parser de argumentos
     parser = argparse.ArgumentParser(description="Script para raspagem de dados do Doctoralia.")
-    parser.add_argument("cidade", nargs="?", default=None, help="Nome da cidade a ser processada (opcional).")
-    parser.add_argument("save_all", nargs="?", default=None, help="Salvar todos os dados em um único JSON (opcional).")
+    parser.add_argument("--cidade", nargs="?", default=None, help="Nome da cidade a ser processada (opcional).")
+    parser.add_argument("--save_all", nargs="?", default=None, help="Salvar todos os dados em um único JSON (opcional).")
 
     args = parser.parse_args()
 
