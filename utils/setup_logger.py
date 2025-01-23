@@ -1,6 +1,5 @@
 import logging
 import colorlog
-
 def setup_logger(log_file="app.log"):
     """
     Configura o logger para registrar logs coloridos no console
