@@ -303,16 +303,18 @@ class DoctorScraper:
                 return []
 
             # Dividir os bairros em grupos de 10
+            qtde_bairros_processar = 0
             district_batches = [districts[i:i + 10] for i in range(0, len(districts), 10)]
             for batch in district_batches:
+                qtde_bairros_processar += len(batch)
                 district_ids = "&".join([f"filters[districts][]={d['key']}" for d in batch])
                 filtered_url = f"{self.base_url}&{district_ids}"
-                logger.info(f"Processando {len(batch)} bairros > {', '.join(d['name'] for d in batch)}")
+                logger.info(f"Processando {qtde_bairros_processar}/{len(districts)} bairros > {', '.join(d['name'] for d in batch)}")
 
                 # Raspagem para o filtro atual
                 filtered_last_page = self.get_last_page(filtered_url)
                 for page in range(1, filtered_last_page + 1):
-                    logger.info(f"Raspando página {page}/{filtered_last_page} Filtrando por bairros {len(batch)}/{len(districts)}...")
+                    logger.info(f"Raspando página {page}/{filtered_last_page} Filtrando por bairros {qtde_bairros_processar}/{len(districts)}...")
                     page_url = filtered_url.replace("page=1", f"page={page}")
                     doctors = self.scrape_page(page_url)
                     all_doctors.extend(doctors)
