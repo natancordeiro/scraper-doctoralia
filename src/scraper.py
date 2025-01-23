@@ -1,4 +1,5 @@
 import re
+import json
 import httpx
 from httpx import HTTPStatusError, RequestError
 from bs4 import BeautifulSoup
@@ -39,6 +40,34 @@ class DoctorScraper:
             except Exception as e:
                 logger.error(f"Erro inesperado ao obter última página: {e}")
                 return 1
+
+    def get_districts(self, url: str) -> list:
+        """Obtém a lista de bairros disponíveis a partir do JSON embutido no HTML."""
+
+        pattern = r"AVAILABLE_FILTERS:\s*(\[.*?\])\s*,\s*ACTIVE_FILTERS"
+
+        try:
+            response = self.client.get(url, timeout=10)
+            response.raise_for_status()
+            match = re.search(pattern, response.text, re.DOTALL)    
+            if not match:
+                logger.warning("JSON de configuração não encontrado no HTML.")
+                return []
+
+            available_filters = json.loads(match.group(1))
+            districts_filter = next(
+                (f for f in available_filters if f["name"] == "districts"), None
+            )
+            if not districts_filter:
+                logger.warning("Filtro de bairros (districts) não encontrado.")
+                return []
+
+            districts = districts_filter.get("items", [])
+            logger.info(f"{len(districts)} bairros encontrados.")
+            return districts
+        except Exception as e:
+            logger.error(f"Erro ao obter lista de bairros: {e}")
+            return []
 
     def scrape_page(self, url: str) -> list:
         """Raspa os dados de uma única página."""
@@ -266,11 +295,34 @@ class DoctorScraper:
         all_doctors = []
         last_page = self.get_last_page(self.base_url)
 
-        for page in range(1, last_page + 1):
-            logger.info(f"Raspando página {page}/{last_page}...")
-            page_url = self.base_url.replace("page=1", f"page={page}")
-            doctors = self.scrape_page(page_url)
-            all_doctors.extend(doctors)
+        if last_page > 500:
+            logger.info(f"Número de páginas ({last_page}) excede o limite de 500. Aplicando filtro por bairros.")
+            districts = self.get_districts(self.base_url)
+            if not districts:
+                logger.error("Não foi possível obter a lista de bairros. Abortando.")
+                return []
+
+            # Dividir os bairros em grupos de 10
+            district_batches = [districts[i:i + 10] for i in range(0, len(districts), 10)]
+            for batch in district_batches:
+                district_ids = "&".join([f"filters[districts][]={d['key']}" for d in batch])
+                filtered_url = f"{self.base_url}&{district_ids}"
+                logger.info(f"Processando {len(batch)} bairros > {', '.join(d['name'] for d in batch)}")
+
+                # Raspagem para o filtro atual
+                filtered_last_page = self.get_last_page(filtered_url)
+                for page in range(1, filtered_last_page + 1):
+                    logger.info(f"Raspando página {page}/{filtered_last_page} Filtrando por bairros {len(batch)}/{len(districts)}...")
+                    page_url = filtered_url.replace("page=1", f"page={page}")
+                    doctors = self.scrape_page(page_url)
+                    all_doctors.extend(doctors)
+        else:
+            # Processar todas as páginas normalmente
+            for page in range(1, last_page + 1):
+                logger.info(f"Raspando página {page}/{last_page}...")
+                page_url = self.base_url.replace("page=1", f"page={page}")
+                doctors = self.scrape_page(page_url)
+                all_doctors.extend(doctors)
 
         logger.info(f"Raspagem concluída para {self.city}. Total de médicos: {len(all_doctors)}")
         return all_doctors
