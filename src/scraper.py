@@ -221,7 +221,7 @@ class DoctorScraper:
                     pbar.update(data['limit'])
 
                     # Verificar se já coletamos todas as reviews
-                    if len(reviews) >= data["numRows"]:
+                    if len(reviews) >= reviews_count:
                         break
 
                     # Incrementa para próxima página
