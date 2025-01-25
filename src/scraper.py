@@ -130,12 +130,17 @@ class DoctorScraper:
 
             # Experiência formatada
             experience = []
+            social_links = []
             for tag in experience_tags:
                 link_tag = tag.select('a[target="_blank"]')
                 if link_tag:
                     experience.append(''.join([tag.text.split()[0], ' ', tag.text.split()[1]]))
                     for link in link_tag:
                         experience.append(f"{link.text.strip()} ({link['href']})")
+                        social_links.append({
+                            "Social Network": link.text.strip(),
+                            "URL": link['href']
+                        })
                 else:
                     experience.append(tag.text.strip())
 
@@ -178,6 +183,7 @@ class DoctorScraper:
                 "Name": name.text.strip() if name else None,
                 "About": about.text.strip() if about else None,
                 "Experience": " ".join(experience),
+                "Social Links": social_links,
                 "Insurance Cover": insurance_cover.text.strip() if insurance_cover else None,
                 "AgePublic Range": age_public_range.text.strip() if age_public_range else None,
                 "Medical Services": services,
