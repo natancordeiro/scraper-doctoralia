@@ -1,5 +1,6 @@
 import re
 import json
+import time
 import httpx
 from httpx import HTTPStatusError, RequestError
 from bs4 import BeautifulSoup
@@ -200,10 +201,18 @@ class DoctorScraper:
         try:
             base_url = f"https://www.doctoralia.com.br/ajax/mobile/doctor-opinions/{doctor_id}"
             page = 2
+            start_time = time.time()
 
             with tqdm(total=reviews_count, desc=f"Processando Reviews", unit=' Reviews') as pbar:
                 pbar.update(len(reviews))
                 while True:
+
+                    # Verifica se o tempo de execução excedeu 20 minutos
+                    elapsed_time = time.time() - start_time
+                    if elapsed_time > 20 * 60:
+                        logger.warning("Interrompendo: tempo de execução excedeu 20 minutos.")
+                        break
+
                     response = self.client.get(f"{base_url}/{page}", timeout=10)
                     response.raise_for_status()
                     data = response.json()
