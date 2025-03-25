@@ -116,7 +116,13 @@ class DoctorScraper:
         # Processar todas as páginas normalmente
         for page in range(1, last_page + 1):
             logger.info(f"Raspando página {page}/{last_page}...")
-            page_url = self.base_url.replace("page=1", f"page={page}")
+
+            if "page=" in self.base_url:
+                page_url = self.base_url.replace("page=1", f"page={page}")
+            else:
+                connector = "&" if "?" in self.base_url else "?"
+                page_url = f"{self.base_url}{connector}page={page}"
+
             doctors = self.scrape_page(page_url)
             all_doctors.extend(doctors)
 
