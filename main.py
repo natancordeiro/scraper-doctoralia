@@ -16,7 +16,7 @@ def main():
     logger.info("Processando dados.")
     for nome, url in filtros.items():
         # Extrai as informações
-        scraper = DoctorScraper(base_url=url, nome=nome)
+        scraper = DoctorScraper(base_url=url, city=nome)
         data = scraper.scrape()
 
         # Verifica se há dados antes de salvar
