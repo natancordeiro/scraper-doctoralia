@@ -5,6 +5,7 @@ import httpx
 from httpx import HTTPStatusError, RequestError
 from bs4 import BeautifulSoup
 from tqdm import tqdm
+import requests
 
 from utils.setup_logger import logger
 from utils.parsing import extract_specialties
@@ -14,6 +15,13 @@ class DoctorScraper:
         self.base_url = base_url
         self.city = city
         self.client = httpx.Client()
+        self.headers = {
+            "User-Agent": (
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                "AppleWebKit/537.36 (KHTML, like Gecko) "
+                "Chrome/120.0.0.0 Safari/537.36"
+            )
+        }
         logger.info(f"Scraper inicializado para {city}.")
 
     def get_last_page(self, url: str) -> int:
@@ -96,7 +104,10 @@ class DoctorScraper:
 
                     # Busca detalhes do perfil
                     profile_details = self.get_profile_details(link_to_profile, reviews)
-                    logger.info(f"Dados do {profile_details['Name']} Extraído com sucesso ({i+1}/{len(all_doctors)})")
+                    if profile_details:
+                        logger.info(f"Dados do {profile_details.get('Nome', 'Desconhecido')} Extraído com sucesso ({i+1}/{len(all_doctors)})")
+                    else:
+                        logger.warning(f"Falha ao extrair dados do médico {professional} ({i+1}/{len(all_doctors)})")
                     doctors.append({
                         "professional": professional,
                         "specialties": specialties,
@@ -115,85 +126,73 @@ class DoctorScraper:
             logger.error(f"Erro ao raspar página: {e}")
             return []
     
-    def get_profile_details(self, profile_url: str, reviews_count: int) -> dict:
-        """Obtém informações adicionais do perfil do profissional."""
+    def get_profile_details(self, profile_url: str, reviews_count: int = 0) -> dict:
         try:
-            response = self.client.get(profile_url, timeout=10)
+            response = requests.get(profile_url, headers=self.headers, timeout=30)
             response.raise_for_status()
             soup = BeautifulSoup(response.text, "html.parser")
-
-            origin_url = profile_url
-            name = soup.select_one("div.unified-doctor-header-info__name span[itemprop='name']")
-            about = soup.select_one("div.about-description")
-            experience_tags = soup.select(".modal-body div.mb-3 ~ div.mb-2")
-            insurance_cover = soup.select_one("div[data-id='check-your-insurance-vue'] p.text-muted")
-            age_public_range = soup.select_one("div[data-test-id='doctor-address-allowed-patients']")
-
-            # Experiência formatada
-            experience = []
-            social_links = []
-            for tag in experience_tags:
-                link_tag = tag.select('a[target="_blank"]')
-                if link_tag:
-                    experience.append(''.join([tag.text.split()[0], ' ', tag.text.split()[1]]))
-                    for link in link_tag:
-                        experience.append(f"{link.text.strip()} ({link['href']})")
-                        social_links.append({
-                            "Social Network": link.text.strip(),
-                            "URL": link['href']
-                        })
-                else:
-                    experience.append(tag.text.strip())
-
-            # Serviços médicos
-            services = []
-            for service in soup.select("[data-id='services-list-container'] > li[data-id='service-item']"):
-                service_name = service.select_one("[itemprop='availableService']")
-                price_tag = service.select_one("div.mr-1")
-                price = int(re.search(r"\d+", price_tag.text).group()) if price_tag and re.search(r"\d+", price_tag.text) else None
-                services.append({
-                    "Service Name": service_name.text.strip() if service_name else None,
-                    "Price": price,
-                })
-
-            reviews = []
-            for review in soup.select("div.opinion.d-block"):
-                reviewer_name = review.select_one("span[itemprop='name']")
-                review_date = review.select_one("time")
-                review_comment = review.select_one("p[itemprop='reviewBody']")
-                reviews.append({
-                    "Reviewer Name": reviewer_name.text.strip() if reviewer_name else None,
-                    "Review Date": review_date.text.strip() if review_date else None,
-                    "Review Comment": review_comment.text.strip() if review_comment else None,
-                })
-            
-            if len(reviews) < reviews_count:
-                logger.info(f"A procesar {reviews_count} Reviews")
-                doctor_id = soup.select_one("div[data-doctor-id]")["data-doctor-id"]
-                reviews = self.get_all_reviews(reviews, doctor_id, reviews_count)
-
-            # Obter perguntas e respostas
-            link_questions = (
-                soup.select_one('a[data-patient-app-event-name="dp-load-more-questions"]')['href']
-                if soup.select_one('a[data-patient-app-event-name="dp-load-more-questions"]')
-                else None
-            )
-            health_questions_and_answers = self.get_all_questions(link_questions) if link_questions else []
-            return {
-                "Origin URL": origin_url,
-                "Name": name.text.strip() if name else None,
-                "About": about.text.strip() if about else None,
-                "Experience": " ".join(experience),
-                "Social Links": social_links,
-                "Insurance Cover": insurance_cover.text.strip() if insurance_cover else None,
-                "AgePublic Range": age_public_range.text.strip() if age_public_range else None,
-                "Medical Services": services,
-                "Patient Reviews": reviews,
-                "Health Questions and Answers": health_questions_and_answers
-            }
         except Exception as e:
-            logger.error(f"Erro ao obter detalhes do perfil: {e}")
+            logger.error(f"Erro ao requisitar perfil {profile_url}: {e}")
             return {}
+
+        # Nome
+        name_el = soup.select_one("h1[itemprop='name'], h1")
+        name = name_el.get_text(strip=True) if name_el else ""
+
+        # Especialidade (do dataLayer)
+        js_blob = "\n".join([s.string for s in soup.find_all("script") if s.string and "dataLayerContainer" in s.string])
+        m_city = re.search(r"dataLayerContainer\['gtm-city'\]\s*=\s*'([^']+)'", js_blob)
+        m_region = re.search(r"dataLayerContainer\['gtm-region'\]\s*=\s*'([^']+)'", js_blob)
+        m_spec = re.search(r"dataLayerContainer\['gtm-specialization'\]\s*=\s*'([^']+)'", js_blob)
+
+        def _slug_to_title(slug): return slug.replace("-", " ").title() if slug else ""
+
+        cidade = _slug_to_title(m_city.group(1)) if m_city else ""
+        especialidade = _slug_to_title(m_spec.group(1)) if m_spec else ""
+        estado = m_region.group(1).split("-")[-1].upper() if m_region else ""
+
+        # Telefones
+        phones = []
+        for a in soup.select("a[href^='tel:']"):
+            raw = a.get("href", "").replace("tel:", "")
+            norm = re.sub(r"\D+", "", raw)
+            if len(norm) >= 10:
+                phones.append(raw.strip())
+        phones_str = ", ".join(dict.fromkeys(phones))
+
+        # Teleconsulta
+        faz_teleconsulta = "Sim" if soup.select_one('[title="Teleconsulta"]') else "Não"
+
+        # Site
+        site = ""
+        for a in soup.select('a[href^="http"]'):
+            href = a.get("href", "")
+            if all(bad not in href for bad in ["doctoralia", "docplanner", "google", "maps", "noa.ai"]):
+                site = href
+                break
+
+        # Redes sociais
+        redes = []
+        for a in soup.select('a[href^="http"]'):
+            href = a.get("href", "")
+            if any(dom in href for dom in ["facebook", "instagram", "linkedin", "youtube", "twitter", "x.com"]) \
+                and "doctoralia" not in href and "docplanner" not in href:
+                    redes.append(href)
+
+        redes_str = ", ".join(dict.fromkeys(redes))
+
+        return {
+            "Nome": name,
+            "Local": cidade,
+            "estado": estado,
+            "Especialidade": especialidade,
+            "Faz teleconsulta": faz_teleconsulta,
+            "telefone": phones_str,
+            "site": site,
+            "rede social": redes_str,
+            "link": profile_url,
+        }
+
         
     def get_all_reviews(self, reviews: list, doctor_id: str, reviews_count: int) -> list:
         """Obtém todas as reviews do profissional a partir do endpoint."""
